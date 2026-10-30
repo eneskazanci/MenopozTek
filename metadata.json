@@ -1,0 +1,6 @@
+{
+  "name": "Menopozda Tazelenme | Dr. Abdullah Kesgin",
+  "description": "Dr. Abdullah Kesgin Menopozda Tazelenme resmi seminer ve bilgilendirme sayfası. Kadın sağlığı, menopoz dönemi ve yönetici slayt gösterisi paneli.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
