@@ -33,6 +33,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
+  User,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -387,18 +388,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               )}
             </div>
 
-            <div className="bg-purple-50/70 border border-purple-100 rounded-xl p-3 flex items-start gap-2.5">
-              <Sparkles className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-              <div className="text-[11px] text-purple-900 leading-relaxed">
-                <span className="font-bold">Yönetici Şifresi:</span>{' '}
-                <code className="bg-purple-200/80 px-1.5 py-0.5 rounded text-purple-950 font-mono font-semibold">
-                  Menopoz8080*
-                </code>
-                <p className="text-purple-700 text-[10px] mt-0.5">
-                  (Giriş yaptıktan sonra Güvenlik sekmesinden şifrenizi güncelleyebilirsiniz.)
-                </p>
-              </div>
-            </div>
+
 
             <div className="flex gap-2.5 pt-2">
               <button
@@ -947,6 +937,48 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             {/* TAB 2: SEMINAR & SITE CONTENT */}
             {activeTab === 'content' && (
               <div className="space-y-6">
+                {/* Doctor & Header Brand Info */}
+                <div className="bg-white rounded-2xl p-5 border border-purple-100 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-purple-950 font-manrope flex items-center gap-2">
+                    <User className="w-4 h-4 text-purple-700" />
+                    <span>Üst Kısım Doktor ve Başlık Bilgileri</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Doktor Adı & Unvanı
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.siteContent.doctorTitle}
+                        onChange={(e) => handleContentChange('doctorTitle', e.target.value)}
+                        placeholder="Örn: Dr. Abdullah Kesgin"
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs bg-gray-50/50 focus:ring-2 focus:ring-purple-600 outline-none font-bold text-purple-950"
+                      />
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        Sayfanın en üstünde logonun yanında görünen ana doktor/uzman adıdır.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Alt Başlık / Slogan
+                      </label>
+                      <input
+                        type="text"
+                        value={settings.siteContent.doctorSubtitle}
+                        onChange={(e) => handleContentChange('doctorSubtitle', e.target.value)}
+                        placeholder="Örn: Menopozda tazelenme"
+                        className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs bg-gray-50/50 focus:ring-2 focus:ring-purple-600 outline-none font-medium"
+                      />
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        Doktor adının hemen altında yer alan kısa tanıtım metnidir.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Event Schedule & Countdown Target */}
                 <div className="bg-white rounded-2xl p-5 border border-purple-100 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">

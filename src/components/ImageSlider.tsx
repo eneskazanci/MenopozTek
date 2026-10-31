@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Slide, SliderConfig } from '../types';
-import { ChevronLeft, ChevronRight, Play, Pause, Maximize2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, X } from 'lucide-react';
 
 interface ImageSliderProps {
   slides: Slide[];
@@ -158,51 +158,6 @@ export const ImageSlider: React.FC<ImageSliderProps> = ({
                 </button>
               )}
 
-              {/* Bottom Overlay Pill: Dots, Play/Pause, Index */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all">
-                {/* Play / Pause toggle */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsPlaying(!isPlaying);
-                  }}
-                  className="text-white/80 hover:text-white transition-colors cursor-pointer"
-                  title={isPlaying ? 'Durdur' : 'Oynat'}
-                  aria-label={isPlaying ? 'Slaytı Durdur' : 'Slaytı Oynat'}
-                >
-                  {isPlaying ? (
-                    <Pause className="w-3.5 h-3.5 fill-current" />
-                  ) : (
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                  )}
-                </button>
-
-                {/* Dots */}
-                {config.showDots && (
-                  <div className="flex items-center gap-1.5 px-1">
-                    {activeSlides.map((_, idx) => (
-                      <button
-                        key={idx}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCurrentIndex(idx);
-                        }}
-                        className={`h-2 rounded-full transition-all cursor-pointer ${
-                          idx === currentIndex
-                            ? 'w-5 bg-white'
-                            : 'w-2 bg-white/50 hover:bg-white/80'
-                        }`}
-                        aria-label={`Slayt ${idx + 1}`}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Counter */}
-                <span className="text-[10px] font-semibold tracking-wider text-white/90 pl-1 border-l border-white/20">
-                  {currentIndex + 1}/{activeSlides.length}
-                </span>
-              </div>
             </>
           )}
         </div>
