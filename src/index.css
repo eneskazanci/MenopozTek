@@ -491,6 +491,53 @@ a:focus-visible {
   margin: 18px auto 35px;
 }
 
+/* STICKY BOTTOM ACTION BAR FOR MOBILE */
+.mobile-fixed-bottom-bar {
+  display: none;
+}
+
+@media (max-width: 859px) {
+  body {
+    padding-bottom: 84px; /* prevents fixed bar from overlapping footer */
+  }
+
+  .mobile-fixed-bottom-bar {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(138, 93, 232, 0.14);
+    box-shadow: 0 -6px 24px rgba(45, 18, 75, 0.08);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-fixed-inner {
+    max-width: 500px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  .mobile-sticky-cta {
+    width: 100%;
+    flex: 1;
+    padding: 14px 18px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    border-radius: 13px !important;
+    box-shadow: 0 4px 16px rgba(39, 125, 86, 0.35) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;

@@ -198,7 +198,7 @@ export default function App() {
           {siteContent.footerLeft} <span></span> {siteContent.footerCenter} <span></span> {siteContent.footerRight}
         </footer>
 
-        {/* ADMIN TRIGGER: ONLY GEAR ICON */}
+        {/* ADMIN TRIGGER: ONLY GEAR ICON (DESKTOP) */}
         <div className="admin-bar-wrap">
           <button
             onClick={() => setIsAdminOpen(true)}
@@ -210,6 +210,36 @@ export default function App() {
           </button>
         </div>
       </main>
+
+      {/* MOBILE STICKY BOTTOM ACTION BAR (ALWAYS VISIBLE ON MOBILE) */}
+      <div className="mobile-fixed-bottom-bar" role="region" aria-label="Hızlı Katılım">
+        <div className="mobile-fixed-inner">
+          <a
+            className="cta mobile-sticky-cta"
+            href={siteContent.whatsappUrl}
+            data-track="whatsapp-sticky"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="WhatsApp grubuna katıl"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              aria-hidden="true"
+              className="w-5 h-5 shrink-0"
+            >
+              <path d="M20.5 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.1-4.8A8.5 8.5 0 1 1 20.5 11.5Z" />
+              <path d="M8.5 7.5c-.6 2.6 2 5.6 5.1 6.6l1.8-1.6-2-1.2-.9.7-2-2 .6-.9-1.1-1.9Z" />
+            </svg>
+            <span className="cta-label">{siteContent.whatsappCtaText}</span>
+            <span className="arrow" aria-hidden="true">
+              ↗
+            </span>
+          </a>
+        </div>
+      </div>
 
       {/* ADMIN MODAL */}
       <AdminPanel
