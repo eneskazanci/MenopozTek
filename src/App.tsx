@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AdminSettings } from './types';
-import { loadSettings, saveSettings } from './data/defaults';
+import { loadSettings, saveSettings, fetchRemoteSettings } from './data/defaults';
 import { CountdownTimer } from './components/CountdownTimer';
 import { ImageSlider } from './components/ImageSlider';
 import { AdminPanel } from './components/AdminPanel';
@@ -18,6 +18,19 @@ export default function App() {
     if (typeof window === 'undefined') return false;
     return window.innerWidth < 860;
   });
+
+  // Fetch remote settings on mount so all devices and incognito tabs see the latest data
+  useEffect(() => {
+    let isMounted = true;
+    fetchRemoteSettings().then((remote) => {
+      if (isMounted && remote) {
+        setSettings(remote);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {

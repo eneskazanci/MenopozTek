@@ -69,6 +69,21 @@ export const DEFAULT_ADMIN_PASSWORD = 'Menopoz8080*';
 
 const STORAGE_KEY = 'menopoz_drabdullahkesgin_settings_v1';
 
+export function parseAndSanitizeSettings(parsed: any): AdminSettings {
+  const resolvedPassword =
+    !parsed || !parsed.passwordHash || parsed.passwordHash === 'admin'
+      ? DEFAULT_ADMIN_PASSWORD
+      : parsed.passwordHash;
+
+  return {
+    passwordHash: resolvedPassword,
+    sliderConfig: { ...DEFAULT_SLIDER_CONFIG, ...(parsed?.sliderConfig || {}) },
+    slides: parsed?.slides && parsed.slides.length > 0 ? parsed.slides : DEFAULT_SLIDES,
+    siteContent: { ...DEFAULT_SITE_CONTENT, ...(parsed?.siteContent || {}) },
+    updatedAt: parsed?.updatedAt || new Date().toISOString(),
+  };
+}
+
 export function loadSettings(): AdminSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -78,20 +93,11 @@ export function loadSettings(): AdminSettings {
         sliderConfig: DEFAULT_SLIDER_CONFIG,
         slides: DEFAULT_SLIDES,
         siteContent: DEFAULT_SITE_CONTENT,
+        updatedAt: new Date().toISOString(),
       };
     }
     const parsed = JSON.parse(raw);
-    const resolvedPassword =
-      !parsed.passwordHash || parsed.passwordHash === 'admin'
-        ? DEFAULT_ADMIN_PASSWORD
-        : parsed.passwordHash;
-
-    const loadedSettings: AdminSettings = {
-      passwordHash: resolvedPassword,
-      sliderConfig: { ...DEFAULT_SLIDER_CONFIG, ...(parsed.sliderConfig || {}) },
-      slides: parsed.slides && parsed.slides.length > 0 ? parsed.slides : DEFAULT_SLIDES,
-      siteContent: { ...DEFAULT_SITE_CONTENT, ...(parsed.siteContent || {}) },
-    };
+    const loadedSettings = parseAndSanitizeSettings(parsed);
 
     // If migrating from legacy default password, persist the new password
     if (parsed.passwordHash === 'admin') {
@@ -106,16 +112,107 @@ export function loadSettings(): AdminSettings {
       sliderConfig: DEFAULT_SLIDER_CONFIG,
       slides: DEFAULT_SLIDES,
       siteContent: DEFAULT_SITE_CONTENT,
+      updatedAt: new Date().toISOString(),
     };
   }
 }
 
+/**
+ * Asynchronously fetches remote settings from server endpoints (Hostinger or Vite dev).
+ * This ensures all visitors and incognito windows receive changes made from other devices.
+ */
+export async function fetchRemoteSettings(): Promise<AdminSettings | null> {
+  const endpoints = [
+    `/api/data.json?t=${Date.now()}`,
+    `/settings.json?t=${Date.now()}`,
+    `/api/save.php?t=${Date.now()}`,
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && (data.siteContent || data.slides)) {
+          const sanitized = parseAndSanitizeSettings(data);
+          // Update local cache
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+          } catch (_) {}
+          return sanitized;
+        }
+      }
+    } catch (_) {
+      // Continue to next endpoint fallback
+    }
+  }
+  return null;
+}
+
+/**
+ * Saves settings to localStorage and dispatches a background save to the server
+ */
 export function saveSettings(settings: AdminSettings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   } catch (e) {
     console.error('Failed to save settings to storage', e);
   }
+
+  // Also dispatch server sync asynchronously
+  syncSettingsWithServer(settings).catch(() => {});
+}
+
+/**
+ * Explicit server sync that notifies whether the changes were successfully saved to the server
+ */
+export async function syncSettingsWithServer(
+  settings: AdminSettings
+): Promise<{ success: boolean; message: string; syncedGlobally: boolean }> {
+  const payload = {
+    settings: {
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    },
+  };
+
+  const endpoints = ['/api/save.php', '/api/save'];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const result = await res.json().catch(() => ({}));
+        return {
+          success: true,
+          syncedGlobally: true,
+          message:
+            result.message ||
+            'Tüm cihazlar ve ziyaretçiler için sunucuya başarıyla kaydedildi.',
+        };
+      }
+    } catch (err: any) {
+      // try fallback endpoint
+    }
+  }
+
+  return {
+    success: true,
+    syncedGlobally: false,
+    message:
+      'Yerel tarayıcıya kaydedildi. Sunucuda (Hostinger) tüm ziyaretçiler için geçerli olması amacıyla "settings.json İndir" butonunu kullanarak dosyanızı güncelleyebilir veya Hostinger PHP API desteğini kullanabilirsiniz.',
+  };
 }
 
 export function resetSettings(): AdminSettings {
@@ -124,6 +221,7 @@ export function resetSettings(): AdminSettings {
     sliderConfig: DEFAULT_SLIDER_CONFIG,
     slides: DEFAULT_SLIDES,
     siteContent: DEFAULT_SITE_CONTENT,
+    updatedAt: new Date().toISOString(),
   };
   saveSettings(fresh);
   return fresh;

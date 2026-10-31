@@ -46,4 +46,5 @@ export interface AdminSettings {
   sliderConfig: SliderConfig;
   slides: Slide[];
   siteContent: SiteContent;
+  updatedAt?: string;
 }

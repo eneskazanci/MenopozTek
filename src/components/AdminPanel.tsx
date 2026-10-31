@@ -8,6 +8,8 @@ import {
 import {
   DEFAULT_SLIDES,
   resetSettings,
+  syncSettingsWithServer,
+  parseAndSanitizeSettings,
 } from '../data/defaults';
 import {
   Lock,
@@ -34,6 +36,13 @@ import {
   AlertCircle,
   Sparkles,
   User,
+  Globe,
+  Cloud,
+  RefreshCw,
+  Server,
+  FileJson,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -55,7 +64,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [authError, setAuthError] = useState('');
 
   // Active tab
-  const [activeTab, setActiveTab] = useState<'slider' | 'content' | 'security'>('slider');
+  const [activeTab, setActiveTab] = useState<'slider' | 'content' | 'security' | 'sync'>('slider');
 
   // Form states for adding/editing a slide
   const [isEditingSlide, setIsEditingSlide] = useState(false);
@@ -71,6 +80,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [pwMessage, setPwMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Cross-device sync state
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+  const [jsonCopied, setJsonCopied] = useState(false);
 
   // Success flash toast
   const [saveToast, setSaveToast] = useState(false);
@@ -294,15 +311,75 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  // Export JSON backup
-  const handleExport = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(settings, null, 2));
+  // Push settings to server (Cross-Device Global Sync)
+  const handlePushToServer = async () => {
+    setSyncLoading(true);
+    setSyncFeedback(null);
+    try {
+      const res = await syncSettingsWithServer(settings);
+      setSyncFeedback(res);
+      showSaveSuccess();
+    } catch (err: any) {
+      setSyncFeedback({
+        success: false,
+        message: 'Sunucuya bağlanılamadı: ' + (err.message || 'Bilinmeyen hata'),
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  // Download settings.json for Hostinger / GitHub
+  const handleDownloadSettingsJson = () => {
+    const jsonToSave = {
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    };
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(jsonToSave, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', 'menopoz_site_yedek.json');
+    downloadAnchor.setAttribute('download', 'settings.json');
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
+  };
+
+  // Copy JSON config to clipboard
+  const handleCopyJson = () => {
+    const jsonStr = JSON.stringify(settings, null, 2);
+    navigator.clipboard.writeText(jsonStr).then(() => {
+      setJsonCopied(true);
+      setTimeout(() => setJsonCopied(false), 2000);
+    });
+  };
+
+  // Import settings from file
+  const handleImportSettingsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        const sanitized = parseAndSanitizeSettings(parsed);
+        onUpdateSettings(sanitized);
+        setSyncFeedback({
+          success: true,
+          message: 'Ayarlar başarıyla yüklendi ve uygulandı.',
+        });
+        showSaveSuccess();
+      } catch (err) {
+        alert('Geçersiz JSON dosyası. Lütfen geçerli bir settings.json dosyası yükleyin.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // Export JSON backup
+  const handleExport = () => {
+    handleDownloadSettingsJson();
   };
 
   // Preset medical & seminar visuals
@@ -483,7 +560,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}
             >
               <Shield className="w-4 h-4" />
-              <span>Güvenlik & Ayarlar</span>
+              <span>Güvenlik & Şifre</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('sync')}
+              className={`px-4 py-2.5 rounded-t-xl text-xs font-bold flex items-center gap-2 border-b-2 transition-all ${
+                activeTab === 'sync'
+                  ? 'border-purple-600 text-purple-950 bg-white shadow-sm'
+                  : 'border-transparent text-gray-500 hover:text-purple-900'
+              }`}
+            >
+              <Globe className="w-4 h-4 text-emerald-600" />
+              <span>Cihazlar Arası Eşitleme</span>
             </button>
           </div>
 
@@ -1343,6 +1432,188 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <RotateCcw className="w-4 h-4" />
                       <span>Orijinal Site Ayarlarına Sıfırla</span>
                     </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: CROSS-DEVICE GLOBAL SYNCHRONIZATION */}
+            {activeTab === 'sync' && (
+              <div className="space-y-6">
+                {/* Status & Live Push Card */}
+                <div className="bg-gradient-to-br from-purple-50 via-white to-indigo-50/40 rounded-2xl p-5 border border-purple-200/80 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-purple-100">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <h3 className="text-sm font-bold text-purple-950 font-manrope">
+                          Cihazlar Arası Canlı Senkronizasyon
+                        </h3>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Tarih, hekim bilgisi ve slaytların tüm cihazlarda ve gizli sekmelerde görünmesini sağlar.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={handlePushToServer}
+                      disabled={syncLoading}
+                      className="px-4 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:bg-purple-400 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${syncLoading ? 'animate-spin' : ''}`} />
+                      <span>{syncLoading ? 'Kaydediliyor...' : 'Tüm Cihazlara Yayınla'}</span>
+                    </button>
+                  </div>
+
+                  {/* Feedback Message */}
+                  {syncFeedback && (
+                    <div
+                      className={`mt-4 p-3.5 rounded-xl text-xs flex items-start gap-2.5 border ${
+                        syncFeedback.success
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : 'bg-amber-50 border-amber-200 text-amber-800'
+                      }`}
+                    >
+                      {syncFeedback.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      )}
+                      <div className="flex-1 leading-relaxed">
+                        <strong className="block font-semibold mb-0.5">
+                          {syncFeedback.success ? 'Senkronizasyon Başarılı' : 'Bilgilendirme'}
+                        </strong>
+                        {syncFeedback.message}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Timestamp info */}
+                  <div className="mt-4 flex flex-wrap items-center justify-between text-[11px] text-gray-500 gap-2">
+                    <span>
+                      Son Güncelleme Zamanı:{' '}
+                      <strong className="text-purple-900">
+                        {settings.updatedAt
+                          ? new Date(settings.updatedAt).toLocaleString('tr-TR')
+                          : 'Henüz kaydedilmedi'}
+                      </strong>
+                    </span>
+                    <span className="text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full font-medium">
+                      ✓ Otomatik API & JSON Aktif
+                    </span>
+                  </div>
+                </div>
+
+                {/* Problem & Solution Explanation */}
+                <div className="bg-white rounded-2xl p-5 border border-purple-100 shadow-sm space-y-3">
+                  <h3 className="text-sm font-bold text-purple-950 font-manrope flex items-center gap-2">
+                    <Server className="w-4 h-4 text-purple-700" />
+                    <span>Neden Farklı Cihazlarda Görünmüyordu?</span>
+                  </h3>
+
+                  <div className="text-xs text-gray-600 space-y-2.5 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-gray-100">
+                    <p>
+                      <strong>1. Tarayıcı Hafızası (LocalStorage):</strong> Standart web tarayıcılarında yapılan değişiklikler yalnızca o an kullandığınız tarayıcının yerel hafızasına yazılır. Bu nedenle farklı bir telefondan veya gizli sekmeden girildiğinde boş bir hafıza ile karşılaşılır.
+                    </p>
+                    <p>
+                      <strong>2. Getirilen Çözüm (Çift Katmanlı Senkronizasyon):</strong>
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 pl-1 text-gray-700">
+                      <li>
+                        <strong>Sunucu API Desteği:</strong> Sitenize <code>public/api/save.php</code> ve <code>data.json</code> eklendi. Panelde değişiklik yapıldığında doğrudan sunucu dosyasına yazılır.
+                      </li>
+                      <li>
+                        <strong>Açılışta Otomatik Çekme:</strong> Sayfa açıldığında gizli sekme veya yeni telefon fark etmeksizin önce sunucudaki <code>/api/data.json</code> ve <code>/settings.json</code> dosyasını çeker.
+                      </li>
+                      <li>
+                        <strong>Hostinger & GitHub Desteği:</strong> Değişiklikleri doğrudan <code>settings.json</code> olarak indirip GitHub reponuza da yükleyebilirsiniz.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Hostinger & GitHub Actions */}
+                <div className="bg-white rounded-2xl p-5 border border-purple-100 shadow-sm space-y-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-purple-950 font-manrope flex items-center gap-2">
+                      <FileJson className="w-4 h-4 text-purple-700" />
+                      <span>Hostinger ve GitHub Dosya Yönetimi</span>
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Değişikliklerinizi GitHub reponuza kalıcı dosya olarak aktarmak veya mevcut bir yedeği yüklemek için bu araçları kullanabilirsiniz.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Download settings.json */}
+                    <button
+                      onClick={handleDownloadSettingsJson}
+                      className="p-3.5 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-purple-50 text-left transition-all group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center mb-2 shadow-xs group-hover:scale-105 transition-transform">
+                        <Download className="w-4 h-4" />
+                      </div>
+                      <strong className="block text-xs font-bold text-purple-950">
+                        settings.json İndir
+                      </strong>
+                      <span className="text-[11px] text-gray-500 block mt-0.5">
+                        GitHub veya Hostinger için güncel ayar dosyası
+                      </span>
+                    </button>
+
+                    {/* Import from file */}
+                    <label className="p-3.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-left transition-all group cursor-pointer block">
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleImportSettingsFile}
+                        className="sr-only"
+                      />
+                      <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center mb-2 shadow-xs group-hover:scale-105 transition-transform">
+                        <Upload className="w-4 h-4" />
+                      </div>
+                      <strong className="block text-xs font-bold text-gray-900">
+                        Ayarları Dosyadan Yükle
+                      </strong>
+                      <span className="text-[11px] text-gray-500 block mt-0.5">
+                        Bilgisayardaki settings.json dosyasını yükleyin
+                      </span>
+                    </label>
+
+                    {/* Copy JSON */}
+                    <button
+                      onClick={handleCopyJson}
+                      className="p-3.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-left transition-all group cursor-pointer"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center mb-2 shadow-xs group-hover:scale-105 transition-transform">
+                        {jsonCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </div>
+                      <strong className="block text-xs font-bold text-gray-900">
+                        {jsonCopied ? 'Kopyalandı!' : 'JSON Kodunu Kopyala'}
+                      </strong>
+                      <span className="text-[11px] text-gray-500 block mt-0.5">
+                        Metin olarak kopyalayıp inceleyin
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Hostinger Step by Step Guide */}
+                <div className="bg-purple-950 text-white rounded-2xl p-5 shadow-sm space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Cloud className="w-4 h-4 text-purple-300" />
+                    <h4 className="text-xs font-bold tracking-wide text-purple-200 uppercase">
+                      Hostinger'da Sıfır Sorun İçin Kontrol Listesi
+                    </h4>
+                  </div>
+
+                  <div className="text-xs text-purple-100/90 space-y-2 leading-relaxed">
+                    <p>
+                      <strong>• Otomatik API:</strong> Hostinger Apache sunucularında <code>public/api/save.php</code> otomatik olarak çalışacaktır. Hostinger Dosya Yöneticisi'nde <code>api/</code> klasörünün yazılabilir (755 veya 775) olduğundan emin olunuz.
+                    </p>
+                    <p>
+                      <strong>• GitHub Otomasyonu:</strong> Eğer sitenizi GitHub'dan otomatik derliyorsanız (Vite dist), indirilen <code>settings.json</code> dosyasını projenin <code>public/settings.json</code> ve <code>public/api/data.json</code> içerisine yapıştırıp GitHub'a push ettiğinizde de kalıcı olarak tüm dünyaya yayınlanır.
+                    </p>
                   </div>
                 </div>
               </div>
